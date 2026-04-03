@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import db from './db.ts';
+import { Router } from 'express';
+import type { Request, Response, NextFunction } from 'express';
+import { db } from '../server.ts';
 import { authenticateToken } from './auth.ts';
 
 const router = Router();
@@ -7,8 +8,8 @@ const router = Router();
 // Get all treatments
 router.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const treatments = db.prepare('SELECT * FROM Treatment ORDER BY name ASC').all();
-    res.json(treatments);
+    const result = await db.query('SELECT * FROM "Treatment" ORDER BY name ASC');
+    res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -18,20 +19,13 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { name, description, baseCost } = req.body;
-    
-    const result = db.prepare(`
-      INSERT INTO Treatment (name, description, baseCost)
-      VALUES (?, ?, ?)
-    `).run(name, description, parseFloat(baseCost));
-    
-    const newTreatment = db.prepare('SELECT * FROM Treatment WHERE id = ?').get(result.lastInsertRowid);
-    
-    // Emit WebSocket event
-    if ((req as any).io) {
-      (req as any).io.emit('treatment_created', newTreatment);
-    }
-    
-    res.status(201).json(newTreatment);
+    const result = await db.query(
+      `INSERT INTO "Treatment" (name, description, "baseCost") VALUES ($1, $2, $3) RETURNING *`,
+      [name, description, parseFloat(baseCost)]
+    );
+    const treatment = result.rows[0];
+    if ((req as any).io) (req as any).io.emit('treatment_created', treatment);
+    res.status(201).json(treatment);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -42,21 +36,15 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { name, description, baseCost } = req.body;
-    
-    db.prepare(`
-      UPDATE Treatment 
-      SET name = ?, description = ?, baseCost = ?, updatedAt = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(name, description, parseFloat(baseCost), parseInt(id));
-    
-    const updatedTreatment = db.prepare('SELECT * FROM Treatment WHERE id = ?').get(parseInt(id));
-    
-    // Emit WebSocket event
-    if ((req as any).io) {
-      (req as any).io.emit('treatment_updated', updatedTreatment);
-    }
-    
-    res.json(updatedTreatment);
+    const result = await db.query(
+      `UPDATE "Treatment"
+       SET name = $1, description = $2, "baseCost" = $3, "updatedAt" = CURRENT_TIMESTAMP
+       WHERE id = $4 RETURNING *`,
+      [name, description, parseFloat(baseCost), parseInt(id)]
+    );
+    const treatment = result.rows[0];
+    if ((req as any).io) (req as any).io.emit('treatment_updated', treatment);
+    res.json(treatment);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -66,14 +54,8 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
-    db.prepare('DELETE FROM Treatment WHERE id = ?').run(parseInt(id));
-    
-    // Emit WebSocket event
-    if ((req as any).io) {
-      (req as any).io.emit('treatment_deleted', id);
-    }
-    
+    await db.query('DELETE FROM "Treatment" WHERE id = $1', [parseInt(id)]);
+    if ((req as any).io) (req as any).io.emit('treatment_deleted', id);
     res.json({ message: 'Treatment deleted successfully.' });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

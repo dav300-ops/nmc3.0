@@ -1,62 +1,60 @@
-import { Router, Request, Response } from 'express';
-import db from './db.ts';
+import { Router } from 'express';
+import type { Request, Response, NextFunction } from 'express';
+import { db } from '../server.ts';
 import { authenticateToken } from './auth.ts';
 
 const router = Router();
 
-// Revenue report (revenue over time)
+// Revenue by month
 router.get('/revenue', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const revenueByMonth = db.prepare(`
-      SELECT 
-        strftime('%Y-%m', date) as month,
+    const result = await db.query(`
+      SELECT
+        TO_CHAR(date, 'YYYY-MM') as month,
         SUM(amount) as amount
-      FROM Payment
+      FROM "Payment"
       WHERE status = 'completed'
       GROUP BY month
       ORDER BY month ASC
-    `).all();
-
-    res.json(revenueByMonth);
+    `);
+    res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Appointment stats report
+// Appointment stats
 router.get('/appointments', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const appointments: any[] = db.prepare('SELECT status FROM Appointment').all();
-
-    const stats = {
-      total: appointments.length,
-      scheduled: appointments.filter(a => a.status === 'scheduled').length,
-      completed: appointments.filter(a => a.status === 'completed').length,
-      cancelled: appointments.filter(a => a.status === 'cancelled').length,
-      noShow: appointments.filter(a => a.status === 'no-show').length,
-    };
-
-    res.json(stats);
+    const result = await db.query(`
+      SELECT
+        COUNT(*)                                            AS total,
+        COUNT(*) FILTER (WHERE status = 'scheduled')       AS scheduled,
+        COUNT(*) FILTER (WHERE status = 'completed')       AS completed,
+        COUNT(*) FILTER (WHERE status = 'cancelled')       AS cancelled,
+        COUNT(*) FILTER (WHERE status = 'no-show')         AS "noShow"
+      FROM "Appointment"
+    `);
+    res.json(result.rows[0]);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Treatment stats report
+// Treatment stats
 router.get('/treatments', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const treatments: any[] = db.prepare('SELECT * FROM Treatment').all();
-    
-    const report = treatments.map(t => {
-      const appointments: any[] = db.prepare('SELECT status FROM Appointment WHERE treatmentId = ?').all(t.id);
-      return {
-        name: t.name,
-        count: appointments.length,
-        revenue: appointments.filter(a => a.status === 'completed').length * t.baseCost
-      };
-    }).sort((a, b) => b.count - a.count);
-
-    res.json(report);
+    const result = await db.query(`
+      SELECT
+        t.name,
+        COUNT(a.id)                                                        AS count,
+        COUNT(a.id) FILTER (WHERE a.status = 'completed') * t."baseCost"  AS revenue
+      FROM "Treatment" t
+      LEFT JOIN "Appointment" a ON a."treatmentId" = t.id
+      GROUP BY t.id, t.name, t."baseCost"
+      ORDER BY count DESC
+    `);
+    res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -65,30 +63,31 @@ router.get('/treatments', authenticateToken, async (req: Request, res: Response)
 // Dashboard summary
 router.get('/summary', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const patientCount: any = db.prepare('SELECT COUNT(*) as count FROM Patient').get();
-    const appointmentCount: any = db.prepare('SELECT COUNT(*) as count FROM Appointment').get();
-    const totalRevenue: any = db.prepare("SELECT SUM(amount) as sum FROM Payment WHERE status = 'completed'").get();
-    const treatmentCount: any = db.prepare('SELECT COUNT(*) as count FROM Treatment').get();
-
-    const recentActivity = db.prepare(`
-      SELECT * FROM Appointment 
-      ORDER BY createdAt DESC 
-      LIMIT 5
-    `).all();
-    
-    const recentActivityWithRelations = recentActivity.map((appt: any) => {
-      appt.patient = db.prepare('SELECT * FROM Patient WHERE id = ?').get(appt.patientId);
-      appt.provider = db.prepare('SELECT * FROM Provider WHERE id = ?').get(appt.providerId);
-      appt.treatment = appt.treatmentId ? db.prepare('SELECT * FROM Treatment WHERE id = ?').get(appt.treatmentId) : null;
-      return appt;
-    });
+    const [patients, appointments, revenue, treatments, recentActivity] = await Promise.all([
+      db.query('SELECT COUNT(*) as count FROM "Patient"'),
+      db.query('SELECT COUNT(*) as count FROM "Appointment"'),
+      db.query(`SELECT COALESCE(SUM(amount), 0) as sum FROM "Payment" WHERE status = 'completed'`),
+      db.query('SELECT COUNT(*) as count FROM "Treatment"'),
+      db.query(`
+        SELECT a.*,
+          row_to_json(pat.*) as patient,
+          row_to_json(pro.*) as provider,
+          row_to_json(t.*)   as treatment
+        FROM "Appointment" a
+        LEFT JOIN "Patient"   pat ON pat.id = a."patientId"
+        LEFT JOIN "Provider"  pro ON pro.id = a."providerId"
+        LEFT JOIN "Treatment" t   ON t.id   = a."treatmentId"
+        ORDER BY a."createdAt" DESC
+        LIMIT 5
+      `)
+    ]);
 
     res.json({
-      totalPatients: patientCount.count,
-      totalAppointments: appointmentCount.count,
-      totalRevenue: totalRevenue.sum || 0,
-      totalTreatments: treatmentCount.count,
-      recentActivity: recentActivityWithRelations
+      totalPatients:     parseInt(patients.rows[0].count),
+      totalAppointments: parseInt(appointments.rows[0].count),
+      totalRevenue:      parseFloat(revenue.rows[0].sum),
+      totalTreatments:   parseInt(treatments.rows[0].count),
+      recentActivity:    recentActivity.rows
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

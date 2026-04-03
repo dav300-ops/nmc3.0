@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import db from './db.ts';
+import { Router } from 'express';
+import type { Request, Response, NextFunction } from 'express';
+import { db } from '../server.ts';
 import { authenticateToken } from './auth.ts';
 
 const router = Router();
@@ -7,12 +8,13 @@ const router = Router();
 // Get all payments
 router.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const payments = db.prepare('SELECT * FROM Payment ORDER BY date DESC').all();
-    const paymentsWithPatient = payments.map((payment: any) => {
-      payment.patient = db.prepare('SELECT * FROM Patient WHERE id = ?').get(payment.patientId);
-      return payment;
-    });
-    res.json(paymentsWithPatient);
+    const result = await db.query(`
+      SELECT p.*, row_to_json(pat.*) as patient
+      FROM "Payment" p
+      LEFT JOIN "Patient" pat ON pat.id = p."patientId"
+      ORDER BY p.date DESC
+    `);
+    res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -22,22 +24,28 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { patientId, amount, date, method, status, notes } = req.body;
-    const result = db.prepare(`
-      INSERT INTO Payment (patientId, amount, date, method, status, notes)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      parseInt(patientId),
-      parseFloat(amount),
-      date ? new Date(date).toISOString() : new Date().toISOString(),
-      method || 'cash',
-      status || 'completed',
-      notes
+
+    const result = await db.query(
+      `INSERT INTO "Payment" ("patientId", amount, date, method, status, notes)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [
+        parseInt(patientId),
+        parseFloat(amount),
+        date ? new Date(date) : new Date(),
+        method || 'cash',
+        status || 'completed',
+        notes || null
+      ]
     );
-    
-    const payment: any = db.prepare('SELECT * FROM Payment WHERE id = ?').get(result.lastInsertRowid);
-    payment.patient = db.prepare('SELECT * FROM Patient WHERE id = ?').get(payment.patientId);
-    
-    res.status(201).json(payment);
+
+    const payment = await db.query(`
+      SELECT p.*, row_to_json(pat.*) as patient
+      FROM "Payment" p
+      LEFT JOIN "Patient" pat ON pat.id = p."patientId"
+      WHERE p.id = $1
+    `, [result.rows[0].id]);
+
+    res.status(201).json(payment.rows[0]);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -47,8 +55,11 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 router.get('/patient/:patientId', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
-    const payments = db.prepare('SELECT * FROM Payment WHERE patientId = ? ORDER BY date DESC').all(parseInt(patientId));
-    res.json(payments);
+    const result = await db.query(
+      'SELECT * FROM "Payment" WHERE "patientId" = $1 ORDER BY date DESC',
+      [parseInt(patientId)]
+    );
+    res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

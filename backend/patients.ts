@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import db from './db.ts';
+import { Router } from 'express';
+import type { Request, Response, NextFunction } from 'express';
+import { db } from '../server.ts';
 import { authenticateToken } from './auth.ts';
 
 const router = Router();
@@ -7,8 +8,8 @@ const router = Router();
 // Get all patients
 router.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const patients = db.prepare('SELECT * FROM Patient ORDER BY lastName ASC').all();
-    res.json(patients);
+    const result = await db.query('SELECT * FROM "Patient" ORDER BY "lastName" ASC');
+    res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -18,21 +19,12 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { firstName, lastName, email, phone, dateOfBirth, address, gender } = req.body;
-    const result = db.prepare(`
-      INSERT INTO Patient (firstName, lastName, email, phone, dateOfBirth, address, gender)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      firstName,
-      lastName,
-      email,
-      phone,
-      dateOfBirth ? new Date(dateOfBirth).toISOString() : null,
-      address,
-      gender
+    const result = await db.query(
+      `INSERT INTO "Patient" ("firstName", "lastName", email, phone, "dateOfBirth", address, gender)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [firstName, lastName, email, phone, dateOfBirth || null, address, gender]
     );
-    
-    const patient = db.prepare('SELECT * FROM Patient WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json(patient);
+    res.status(201).json(result.rows[0]);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -43,24 +35,15 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { firstName, lastName, email, phone, dateOfBirth, address, gender } = req.body;
-    
-    db.prepare(`
-      UPDATE Patient 
-      SET firstName = ?, lastName = ?, email = ?, phone = ?, dateOfBirth = ?, address = ?, gender = ?, updatedAt = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(
-      firstName,
-      lastName,
-      email,
-      phone,
-      dateOfBirth ? new Date(dateOfBirth).toISOString() : null,
-      address,
-      gender,
-      parseInt(id)
+
+    const result = await db.query(
+      `UPDATE "Patient"
+       SET "firstName" = $1, "lastName" = $2, email = $3, phone = $4,
+           "dateOfBirth" = $5, address = $6, gender = $7, "updatedAt" = CURRENT_TIMESTAMP
+       WHERE id = $8 RETURNING *`,
+      [firstName, lastName, email, phone, dateOfBirth || null, address, gender, parseInt(id)]
     );
-    
-    const patient = db.prepare('SELECT * FROM Patient WHERE id = ?').get(parseInt(id));
-    res.json(patient);
+    res.json(result.rows[0]);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -70,7 +53,7 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    db.prepare('DELETE FROM Patient WHERE id = ?').run(parseInt(id));
+    await db.query('DELETE FROM "Patient" WHERE id = $1', [parseInt(id)]);
     res.json({ message: 'Patient deleted successfully.' });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

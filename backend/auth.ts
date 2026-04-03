@@ -1,7 +1,8 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import db from './db.ts';
+import { db } from '../server.ts';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey123';
@@ -25,16 +26,17 @@ router.post('/register', async (req: Request, res: Response) => {
   try {
     const { email, password, name, role } = req.body;
 
-    const existingUser = db.prepare('SELECT * FROM User WHERE email = ?').get(email);
-    if (existingUser) return res.status(400).json({ message: 'User already exists.' });
+    const existing = await db.query('SELECT * FROM "User" WHERE email = $1', [email]);
+    if (existing.rows.length > 0)
+      return res.status(400).json({ message: 'User already exists.' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const result = db.prepare('INSERT INTO User (email, password, name, role) VALUES (?, ?, ?, ?)').run(
-      email, hashedPassword, name, role || 'staff'
+    const result = await db.query(
+      'INSERT INTO "User" (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING *',
+      [email, hashedPassword, name, role || 'staff']
     );
-    
-    const user: any = db.prepare('SELECT * FROM User WHERE id = ?').get(result.lastInsertRowid);
 
+    const user = result.rows[0];
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
     res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
   } catch (error: any) {
@@ -47,7 +49,8 @@ router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    const user: any = db.prepare('SELECT * FROM User WHERE email = ?').get(email);
+    const result = await db.query('SELECT * FROM "User" WHERE email = $1', [email]);
+    const user = result.rows[0];
     if (!user) return res.status(400).json({ message: 'Invalid email or password.' });
 
     const validPassword = await bcrypt.compare(password, user.password);

@@ -1,32 +1,41 @@
-import { Router, Request, Response } from 'express';
-import db from './db.ts';
+import { Router } from 'express';
+import type { Request, Response, NextFunction } from 'express';
+import { db } from '../server.ts';
 import { authenticateToken } from './auth.ts';
 
 const router = Router();
 
 // Helper to get appointment with relations
-const getAppointmentWithRelations = (id: number) => {
-  const appointment: any = db.prepare('SELECT * FROM Appointment WHERE id = ?').get(id);
-  if (!appointment) return null;
-  
-  appointment.patient = db.prepare('SELECT * FROM Patient WHERE id = ?').get(appointment.patientId);
-  appointment.provider = db.prepare('SELECT * FROM Provider WHERE id = ?').get(appointment.providerId);
-  appointment.treatment = appointment.treatmentId ? db.prepare('SELECT * FROM Treatment WHERE id = ?').get(appointment.treatmentId) : null;
-  
-  return appointment;
+const getAppointmentWithRelations = async (id: number) => {
+  const result = await db.query(`
+    SELECT a.*,
+      row_to_json(pat.*) as patient,
+      row_to_json(pro.*) as provider,
+      row_to_json(t.*)  as treatment
+    FROM "Appointment" a
+    LEFT JOIN "Patient"   pat ON pat.id = a."patientId"
+    LEFT JOIN "Provider"  pro ON pro.id = a."providerId"
+    LEFT JOIN "Treatment" t   ON t.id   = a."treatmentId"
+    WHERE a.id = $1
+  `, [id]);
+  return result.rows[0] || null;
 };
 
 // Get all appointments
 router.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const appointments = db.prepare('SELECT * FROM Appointment ORDER BY startTime ASC').all();
-    const appointmentsWithRelations = appointments.map((appt: any) => {
-      appt.patient = db.prepare('SELECT * FROM Patient WHERE id = ?').get(appt.patientId);
-      appt.provider = db.prepare('SELECT * FROM Provider WHERE id = ?').get(appt.providerId);
-      appt.treatment = appt.treatmentId ? db.prepare('SELECT * FROM Treatment WHERE id = ?').get(appt.treatmentId) : null;
-      return appt;
-    });
-    res.json(appointmentsWithRelations);
+    const result = await db.query(`
+      SELECT a.*,
+        row_to_json(pat.*) as patient,
+        row_to_json(pro.*) as provider,
+        row_to_json(t.*)  as treatment
+      FROM "Appointment" a
+      LEFT JOIN "Patient"   pat ON pat.id = a."patientId"
+      LEFT JOIN "Provider"  pro ON pro.id = a."providerId"
+      LEFT JOIN "Treatment" t   ON t.id   = a."treatmentId"
+      ORDER BY a."startTime" ASC
+    `);
+    res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -36,27 +45,23 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { patientId, providerId, treatmentId, startTime, endTime, status, notes } = req.body;
-    
-    const result = db.prepare(`
-      INSERT INTO Appointment (patientId, providerId, treatmentId, startTime, endTime, status, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      parseInt(patientId),
-      parseInt(providerId),
-      treatmentId ? parseInt(treatmentId) : null,
-      new Date(startTime).toISOString(),
-      new Date(endTime).toISOString(),
-      status || 'scheduled',
-      notes
+
+    const result = await db.query(
+      `INSERT INTO "Appointment" ("patientId", "providerId", "treatmentId", "startTime", "endTime", status, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [
+        parseInt(patientId),
+        parseInt(providerId),
+        treatmentId ? parseInt(treatmentId) : null,
+        new Date(startTime),
+        new Date(endTime),
+        status || 'scheduled',
+        notes || null
+      ]
     );
-    
-    const appointment = getAppointmentWithRelations(Number(result.lastInsertRowid));
-    
-    // Emit WebSocket event
-    if ((req as any).io) {
-      (req as any).io.emit('appointment_created', appointment);
-    }
-    
+
+    const appointment = await getAppointmentWithRelations(result.rows[0].id);
+    if ((req as any).io) (req as any).io.emit('appointment_created', appointment);
     res.status(201).json(appointment);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -68,37 +73,33 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { patientId, providerId, treatmentId, startTime, endTime, status, notes } = req.body;
-    
-    db.prepare(`
-      UPDATE Appointment 
-      SET 
-        patientId = COALESCE(?, patientId),
-        providerId = COALESCE(?, providerId),
-        treatmentId = ?,
-        startTime = COALESCE(?, startTime),
-        endTime = COALESCE(?, endTime),
-        status = COALESCE(?, status),
-        notes = COALESCE(?, notes),
-        updatedAt = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(
-      patientId ? parseInt(patientId) : null,
-      providerId ? parseInt(providerId) : null,
-      treatmentId !== undefined ? (treatmentId ? parseInt(treatmentId) : null) : undefined,
-      startTime ? new Date(startTime).toISOString() : null,
-      endTime ? new Date(endTime).toISOString() : null,
-      status || null,
-      notes || null,
-      parseInt(id)
+
+    await db.query(
+      `UPDATE "Appointment"
+       SET
+         "patientId"   = COALESCE($1, "patientId"),
+         "providerId"  = COALESCE($2, "providerId"),
+         "treatmentId" = $3,
+         "startTime"   = COALESCE($4, "startTime"),
+         "endTime"     = COALESCE($5, "endTime"),
+         status        = COALESCE($6, status),
+         notes         = COALESCE($7, notes),
+         "updatedAt"   = CURRENT_TIMESTAMP
+       WHERE id = $8`,
+      [
+        patientId  ? parseInt(patientId)  : null,
+        providerId ? parseInt(providerId) : null,
+        treatmentId !== undefined ? (treatmentId ? parseInt(treatmentId) : null) : undefined,
+        startTime  ? new Date(startTime)  : null,
+        endTime    ? new Date(endTime)    : null,
+        status     || null,
+        notes      || null,
+        parseInt(id)
+      ]
     );
-    
-    const appointment = getAppointmentWithRelations(parseInt(id));
-    
-    // Emit WebSocket event
-    if ((req as any).io) {
-      (req as any).io.emit('appointment_updated', appointment);
-    }
-    
+
+    const appointment = await getAppointmentWithRelations(parseInt(id));
+    if ((req as any).io) (req as any).io.emit('appointment_updated', appointment);
     res.json(appointment);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -109,13 +110,8 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    db.prepare('DELETE FROM Appointment WHERE id = ?').run(parseInt(id));
-    
-    // Emit WebSocket event
-    if ((req as any).io) {
-      (req as any).io.emit('appointment_deleted', parseInt(id));
-    }
-    
+    await db.query('DELETE FROM "Appointment" WHERE id = $1', [parseInt(id)]);
+    if ((req as any).io) (req as any).io.emit('appointment_deleted', parseInt(id));
     res.json({ message: 'Appointment deleted successfully.' });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -125,24 +121,22 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
 // Get all providers
 router.get('/providers', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const providers = db.prepare('SELECT * FROM Provider').all();
-    res.json(providers);
+    const result = await db.query('SELECT * FROM "Provider"');
+    res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Create provider (helper)
+// Create provider
 router.post('/providers', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { name, specialty, email, phone } = req.body;
-    const result = db.prepare(`
-      INSERT INTO Provider (name, specialty, email, phone)
-      VALUES (?, ?, ?, ?)
-    `).run(name, specialty, email, phone);
-    
-    const provider = db.prepare('SELECT * FROM Provider WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json(provider);
+    const result = await db.query(
+      `INSERT INTO "Provider" (name, specialty, email, phone) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [name, specialty, email, phone]
+    );
+    res.status(201).json(result.rows[0]);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
