@@ -25,7 +25,7 @@ const Sidebar: React.FC = () => {
     <aside className="sidebar">
       <div className="sidebar-header">
         <Stethoscope size={24} color="#3b82f6" />
-        <span>Clinic CRM</span>
+        <span>NMC - CRM</span>
       </div>
       
       <nav className="sidebar-nav">
