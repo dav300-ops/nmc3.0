@@ -15,6 +15,8 @@ import paymentRoutes from './backend/payments.ts';
 import reportRoutes from './backend/reports.ts';
 import treatmentRoutes from './backend/treatments.ts';
 
+
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,16 +24,26 @@ const __dirname = path.dirname(__filename);
 
 // PostgreSQL Connection Pool 
 //running this in development
+// export const db = new Pool({
+//   host:     process.env.DB_HOST     || 'localhost',
+//   port:     Number(process.env.DB_PORT) || 5432,
+//   database: process.env.DB_NAME     || 'nmc',
+//   user:     process.env.DB_USER     || 'postgres',
+//   password: process.env.DB_PASSWORD || '',
+//   connectionString: process.env.DATABASE_URL,
+//   ssl: {
+//     rejectUnauthorized: false 
+//   }
+// });
+
+//run this in production
 export const db = new Pool({
-  host:     process.env.DB_HOST     || 'localhost',
-  port:     Number(process.env.DB_PORT) || 5432,
-  database: process.env.DB_NAME     || 'nmc',
-  user:     process.env.DB_USER     || 'postgres',
-  password: process.env.DB_PASSWORD || '',
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false 
-  }
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT) || 5432,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  ssl: { rejectUnauthorized: false }
 });
 
 // Initialize Tables 
@@ -131,6 +143,7 @@ async function startServer() {
   }
 
   const app = express();
+
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     cors: {
@@ -149,6 +162,8 @@ async function startServer() {
   }));
   app.use(morgan('dev'));
   app.use(express.json());
+ 
+  app.use(express.urlencoded({ extended: true }));
 
   // Attach io to request for use in routes
   app.use((req: any, res, next) => {

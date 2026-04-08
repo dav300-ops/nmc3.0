@@ -4,6 +4,8 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext.tsx';
 import { Stethoscope } from 'lucide-react';
 
+ const API_URL = import.meta.env.VITE_API_URL || '';
+
 const styles = {
   logo: { marginBottom: '1rem' },
   error: { color: 'var(--danger-color)', marginBottom: '1rem', textAlign: 'center' as const, fontSize: '0.875rem' },
@@ -22,19 +24,23 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const response = await axios.post('/api/auth/login', { email, password });
-      login(response.data.token, response.data.user);
-      navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to login. Please check your credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  e.preventDefault();
+  setError('');
+  setLoading(true);
+  console.log('API_URL:', API_URL); // should print your backend URL, not empty string
+  try {
+   
+    const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
+    console.log('Response data:', response.data); 
+    console.log('API_URL:', API_URL); // should print your backend URL, not empty string
+    login(response.data.token, response.data.user);
+    navigate('/');
+  } catch (err: any) {
+    setError(err.response?.data?.message || 'Failed to login. Please check your credentials.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="auth-container">

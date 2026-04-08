@@ -49,6 +49,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   setLoading(false);
 }, []);
 
+  
+
   const login = (newToken: string, newUser: User) => {
   if (!newToken || !newUser) {
     console.error('login() called with invalid arguments', { newToken, newUser });
