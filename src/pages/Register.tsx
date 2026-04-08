@@ -4,6 +4,15 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext.tsx';
 import { Stethoscope } from 'lucide-react';
 
+const styles = {
+  logo: { marginBottom: '1rem' },
+  error: { color: 'var(--danger-color)', marginBottom: '1rem', textAlign: 'center' as const, fontSize: '0.875rem' },
+  submitBtn: { width: '100%', marginTop: '1rem' },
+  footer: { marginTop: '1.5rem', textAlign: 'center' as const, fontSize: '0.875rem' },
+  footerText: { color: 'var(--text-muted)' },
+  footerLink: { color: 'var(--primary-color)', fontWeight: '500' },
+};
+
 const Register: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -18,7 +27,6 @@ const Register: React.FC = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       const response = await axios.post('/api/auth/register', { name, email, password, role });
       login(response.data.token, response.data.user);
@@ -34,12 +42,12 @@ const Register: React.FC = () => {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
-          <Stethoscope size={48} color="#3b82f6" style={{ marginBottom: '1rem' }} />
+          <Stethoscope size={48} color="#3b82f6" style={styles.logo} />
           <h1>Clinic CRM</h1>
           <p>Create a new account</p>
         </div>
 
-        {error && <div style={{ color: 'var(--danger-color)', marginBottom: '1rem', textAlign: 'center', fontSize: '0.875rem' }}>{error}</div>}
+        {error && <div style={styles.error}>{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -87,14 +95,14 @@ const Register: React.FC = () => {
             </select>
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={loading}>
+          <button type="submit" className="btn btn-primary" style={styles.submitBtn} disabled={loading}>
             {loading ? 'Registering...' : 'Register'}
           </button>
         </form>
 
-        <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.875rem' }}>
-          <span style={{ color: 'var(--text-muted)' }}>Already have an account? </span>
-          <Link to="/login" style={{ color: 'var(--primary-color)', fontWeight: '500' }}>Login</Link>
+        <div style={styles.footer}>
+          <span style={styles.footerText}>Already have an account? </span>
+          <Link to="/login" style={styles.footerLink}>Login</Link>
         </div>
       </div>
     </div>

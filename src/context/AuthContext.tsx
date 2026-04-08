@@ -24,25 +24,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+ useEffect(() => {
+  const storedToken = localStorage.getItem('token');
+  const storedUser = localStorage.getItem('user');
 
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+  if (storedToken && storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      if (parsedUser && typeof parsedUser === 'object') {
+        setToken(storedToken);
+        setUser(parsedUser);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+      } else {
+        // Parsed but not a valid user object — clear corrupted storage
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    } catch (e) {
+      console.error('Failed to parse stored user:', e);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     }
-    setLoading(false);
-  }, []);
+  }
+  setLoading(false);
+}, []);
 
   const login = (newToken: string, newUser: User) => {
-    setToken(newToken);
-    setUser(newUser);
-    localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
-    axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-  };
+  if (!newToken || !newUser) {
+    console.error('login() called with invalid arguments', { newToken, newUser });
+    return;
+  }
+  setToken(newToken);
+  setUser(newUser);
+  localStorage.setItem('token', newToken);
+  localStorage.setItem('user', JSON.stringify(newUser));
+  axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+};
 
   const logout = () => {
     setToken(null);

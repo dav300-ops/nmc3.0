@@ -1,13 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
-  Plus, 
-  Search, 
-  Edit2, 
-  Trash2, 
-  X,
-  UserPlus
-} from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, UserPlus } from 'lucide-react';
 
 interface Patient {
   id: number;
@@ -27,18 +20,11 @@ const Patients: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    dateOfBirth: '',
-    address: '',
-    gender: 'Other'
+    firstName: '', lastName: '', email: '',
+    phone: '', dateOfBirth: '', address: '', gender: 'Other'
   });
 
-  useEffect(() => {
-    fetchPatients();
-  }, []);
+  useEffect(() => { fetchPatients(); }, []);
 
   const fetchPatients = async () => {
     try {
@@ -65,15 +51,7 @@ const Patients: React.FC = () => {
       });
     } else {
       setEditingPatient(null);
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        dateOfBirth: '',
-        address: '',
-        gender: 'Other'
-      });
+      setFormData({ firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '', address: '', gender: 'Other' });
     }
     setIsModalOpen(true);
   };
@@ -109,7 +87,7 @@ const Patients: React.FC = () => {
     }
   };
 
-  const filteredPatients = patients.filter(p => 
+  const filteredPatients = patients.filter(p =>
     `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.phone?.includes(searchTerm)
@@ -119,28 +97,27 @@ const Patients: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Patients</h1>
+      <div className="page-header">
+        <h1 className="page-title">Patients</h1>
         <button className="btn btn-primary" onClick={() => handleOpenModal()}>
           <Plus size={18} /> Add Patient
         </button>
       </div>
 
-      <div className="card" style={{ padding: '1rem' }}>
-        <div style={{ position: 'relative', maxWidth: '400px' }}>
-          <Search size={18} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+      <div className="card card--padded">
+        <div className="search-wrapper">
+          <Search size={18} className="search-icon" />
           <input
             type="text"
-            className="form-control"
+            className="form-control search-input"
             placeholder="Search patients..."
-            style={{ paddingLeft: '2.5rem' }}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="card card--no-padding">
         <div className="table-container">
           <table>
             <thead>
@@ -149,25 +126,25 @@ const Patients: React.FC = () => {
                 <th>Contact</th>
                 <th>DOB</th>
                 <th>Gender</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th className="th-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredPatients.map((patient) => (
                 <tr key={patient.id}>
-                  <td style={{ fontWeight: '500' }}>{patient.firstName} {patient.lastName}</td>
+                  <td className="td-bold">{patient.firstName} {patient.lastName}</td>
                   <td>
-                    <div style={{ fontSize: '0.875rem' }}>{patient.email || 'No email'}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{patient.phone || 'No phone'}</div>
+                    <div className="contact-email">{patient.email || 'No email'}</div>
+                    <div className="contact-phone">{patient.phone || 'No phone'}</div>
                   </td>
                   <td>{patient.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : '-'}</td>
                   <td>{patient.gender || '-'}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                      <button onClick={() => handleOpenModal(patient)} style={{ color: 'var(--primary-color)', padding: '0.25rem' }}>
+                  <td>
+                    <div className="action-buttons">
+                      <button onClick={() => handleOpenModal(patient)} className="action-btn action-btn--edit">
                         <Edit2 size={16} />
                       </button>
-                      <button onClick={() => handleDelete(patient.id)} style={{ color: 'var(--danger-color)', padding: '0.25rem' }}>
+                      <button onClick={() => handleDelete(patient.id)} className="action-btn action-btn--delete">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -176,9 +153,9 @@ const Patients: React.FC = () => {
               ))}
               {filteredPatients.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '3rem' }}>
-                    <div style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                      <UserPlus size={48} strokeWidth={1} style={{ marginBottom: '1rem' }} />
+                  <td colSpan={5} className="table-empty">
+                    <div className="empty-state">
+                      <UserPlus size={48} strokeWidth={1} className="empty-state__icon" />
                       <p>No patients found</p>
                     </div>
                   </td>
@@ -197,63 +174,38 @@ const Patients: React.FC = () => {
               <button onClick={handleCloseModal} className="close-btn"><X size={24} /></button>
             </div>
             <form onSubmit={handleSubmit}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-grid-2">
                 <div className="form-group">
                   <label className="form-label">First Name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    required
-                  />
+                  <input type="text" className="form-control" value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} required />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Last Name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    required
-                  />
+                  <input type="text" className="form-control" value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} required />
                 </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Email</label>
-                <input
-                  type="email"
-                  className="form-control"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
+                <input type="email" className="form-control" value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
               </div>
               <div className="form-group">
                 <label className="form-label">Phone</label>
-                <input
-                  type="tel"
-                  className="form-control"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
+                <input type="tel" className="form-control" value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-grid-2">
                 <div className="form-group">
                   <label className="form-label">Date of Birth</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={formData.dateOfBirth}
-                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                  />
+                  <input type="date" className="form-control" value={formData.dateOfBirth}
+                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Gender</label>
-                  <select
-                    className="form-control"
-                    value={formData.gender}
-                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                  >
+                  <select className="form-control" value={formData.gender}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
@@ -262,14 +214,10 @@ const Patients: React.FC = () => {
               </div>
               <div className="form-group">
                 <label className="form-label">Address</label>
-                <textarea
-                  className="form-control"
-                  rows={2}
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                ></textarea>
+                <textarea className="form-control" rows={2} value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}></textarea>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+              <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={handleCloseModal}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Save Patient</button>
               </div>

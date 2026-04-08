@@ -1,13 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
-  Users, 
-  Calendar, 
-  DollarSign, 
-  Clock,
-  ChevronRight,
-  Activity
-} from 'lucide-react';
+import { Users, Calendar, DollarSign, Clock, ChevronRight, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface Summary {
@@ -33,7 +26,6 @@ const Dashboard: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchSummary();
   }, []);
 
@@ -41,11 +33,11 @@ const Dashboard: React.FC = () => {
 
   return (
     <div>
-      <h1 style={{ marginBottom: '2rem', fontSize: '1.5rem', fontWeight: 'bold' }}>Dashboard</h1>
+      <h1 className="page-title">Dashboard</h1>
 
       <div className="summary-grid">
         <div className="summary-card">
-          <div className="summary-icon" style={{ backgroundColor: '#dbeafe', color: '#2563eb' }}>
+          <div className="summary-icon summary-icon--blue">
             <Users size={24} />
           </div>
           <div className="summary-info">
@@ -55,7 +47,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="summary-card">
-          <div className="summary-icon" style={{ backgroundColor: '#fef3c7', color: '#d97706' }}>
+          <div className="summary-icon summary-icon--yellow">
             <Calendar size={24} />
           </div>
           <div className="summary-info">
@@ -65,7 +57,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="summary-card">
-          <div className="summary-icon" style={{ backgroundColor: '#d1fae5', color: '#059669' }}>
+          <div className="summary-icon summary-icon--green">
             <DollarSign size={24} />
           </div>
           <div className="summary-info">
@@ -75,7 +67,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="summary-card">
-          <div className="summary-icon" style={{ backgroundColor: '#e0e7ff', color: '#4338ca' }}>
+          <div className="summary-icon summary-icon--indigo">
             <Activity size={24} />
           </div>
           <div className="summary-info">
@@ -86,9 +78,9 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h2 className="card-title" style={{ marginBottom: 0 }}>Recent Activity</h2>
-          <Link to="/calendar" style={{ fontSize: '0.875rem', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+        <div className="card-header">
+          <h2 className="card-title">Recent Activity</h2>
+          <Link to="/calendar" className="card-header-link">
             View all <ChevronRight size={16} />
           </Link>
         </div>
@@ -111,20 +103,13 @@ const Dashboard: React.FC = () => {
                   <td>{activity.treatment?.name || 'Consultation'}</td>
                   <td>{activity.provider.name}</td>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div className="time-cell">
                       <Clock size={14} color="var(--text-muted)" />
                       {new Date(activity.startTime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                     </div>
                   </td>
                   <td>
-                    <span style={{ 
-                      padding: '0.25rem 0.5rem', 
-                      borderRadius: '9999px', 
-                      fontSize: '0.75rem', 
-                      fontWeight: '500',
-                      backgroundColor: activity.status === 'completed' ? '#d1fae5' : activity.status === 'cancelled' ? '#fee2e2' : '#fef3c7',
-                      color: activity.status === 'completed' ? '#065f46' : activity.status === 'cancelled' ? '#991b1b' : '#92400e'
-                    }}>
+                    <span className={`status-badge status-badge--${activity.status}`}>
                       {activity.status}
                     </span>
                   </td>
@@ -132,7 +117,7 @@ const Dashboard: React.FC = () => {
               ))}
               {summary?.recentActivity.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No recent activity</td>
+                  <td colSpan={4} className="table-empty">No recent activity</td>
                 </tr>
               )}
             </tbody>

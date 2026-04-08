@@ -20,16 +20,21 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ─── PostgreSQL Connection Pool ───────────────────────────────────────────────
+// PostgreSQL Connection Pool 
+//running this in development
 export const db = new Pool({
   host:     process.env.DB_HOST     || 'localhost',
   port:     Number(process.env.DB_PORT) || 5432,
   database: process.env.DB_NAME     || 'nmc',
   user:     process.env.DB_USER     || 'postgres',
   password: process.env.DB_PASSWORD || '',
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false 
+  }
 });
 
-// ─── Initialize Tables ────────────────────────────────────────────────────────
+// Initialize Tables 
 const initDB = async () => {
   await db.query(`
     CREATE TABLE IF NOT EXISTS "User" (
@@ -111,7 +116,7 @@ const initDB = async () => {
     );
   `);
 
-  console.log('✅ Database tables ready');
+  console.log('Database tables ready');
 };
 
 // ─── Server ───────────────────────────────────────────────────────────────────
@@ -119,9 +124,9 @@ async function startServer() {
   // Initialize DB tables on startup
   try {
     await initDB();
-    console.log('✅ PostgreSQL connected');
+    console.log(' PostgreSQL connected');
   } catch (err) {
-    console.error('❌ DB connection error:', err);
+    console.error(' DB connection error:', err);
     process.exit(1);
   }
 
@@ -190,7 +195,7 @@ async function startServer() {
   // ✅ Handle port already in use error
   httpServer.on('error', (err: any) => {
     if (err.code === 'EADDRINUSE') {
-      console.error(`❌ Port ${PORT} is already in use.`);
+      console.error(` Port ${PORT} is already in use.`);
       console.error(`   Run this to fix it: netstat -ano | findstr :${PORT}`);
       console.error(`   Then kill it with:  taskkill /PID <PID> /F`);
       console.error(`   Or set a different PORT= in your .env file`);
