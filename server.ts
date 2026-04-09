@@ -1,3 +1,11 @@
+//logging my env variables 
+console.log('ENV CHECK:', {
+  DB_HOST: process.env.DB_HOST,
+  DB_NAME: process.env.DB_NAME,
+  NODE_ENV: process.env.NODE_ENV,
+  PORT: process.env.PORT,
+});
+
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
