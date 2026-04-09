@@ -30,7 +30,7 @@ const Login: React.FC = () => {
   console.log('API_URL:', API_URL); // should print your backend URL, not empty string
   try {
    
-    const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
+    const response = await axios.post('/api/auth/login', { email, password });
     console.log('Response data:', response.data); 
     console.log('API_URL:', API_URL); // should print your backend URL, not empty string
     login(response.data.token, response.data.user);

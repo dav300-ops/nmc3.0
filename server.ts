@@ -163,6 +163,10 @@ async function startServer() {
 
   // ✅ CORS must be the VERY FIRST middleware
   app.use(cors(corsOptions));
+  // Right after app.use(cors(corsOptions)) and before all other routes
+  app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok' });
+  });
 
   // ✅ Handle ALL preflight requests immediately (must be before routes)
   app.options('*', cors(corsOptions));
