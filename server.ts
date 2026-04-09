@@ -1,4 +1,3 @@
-//logging my env variables 
 console.log('ENV CHECK:', {
   DB_HOST: process.env.DB_HOST,
   DB_NAME: process.env.DB_NAME,
@@ -23,28 +22,11 @@ import paymentRoutes from './backend/payments.ts';
 import reportRoutes from './backend/reports.ts';
 import treatmentRoutes from './backend/treatments.ts';
 
-
-
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// PostgreSQL Connection Pool 
-//running this in development
-// export const db = new Pool({
-//   host:     process.env.DB_HOST     || 'localhost',
-//   port:     Number(process.env.DB_PORT) || 5432,
-//   database: process.env.DB_NAME     || 'nmc',
-//   user:     process.env.DB_USER     || 'postgres',
-//   password: process.env.DB_PASSWORD || '',
-//   connectionString: process.env.DATABASE_URL,
-//   ssl: {
-//     rejectUnauthorized: false 
-//   }
-// });
-
-//run this in production
 export const db = new Pool({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT) || 5432,
@@ -54,9 +36,6 @@ export const db = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-
-
-// Initialize Tables 
 const initDB = async () => {
   await db.query(`
     CREATE TABLE IF NOT EXISTS "User" (
@@ -137,11 +116,9 @@ const initDB = async () => {
       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
-
   console.log('Database tables ready');
 };
 
-// ─── Server ───────────────────────────────────────────────────────────────────
 async function startServer() {
   try {
     await initDB();
@@ -153,17 +130,8 @@ async function startServer() {
 
   const app = express();
   const httpServer = createServer(app);
+  const PORT = Number(process.env.PORT) || 3000;
 
-  //const PORT = Number(process.env.PORT) || 3000;
-
-  const PORT = Number(process.env.PORT);
-
-// And make sure you're listening on 0.0.0.0:
-httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
-
-  // ✅ Define allowed origins once
   const allowedOrigins = [
     'https://nmc-92674.web.app',
     'https://nmc-92674.firebaseapp.com',
@@ -178,17 +146,16 @@ httpServer.listen(PORT, '0.0.0.0', () => {
     credentials: true
   };
 
-  // ✅ CORS must be the VERY FIRST middleware
+  // CORS first
   app.use(cors(corsOptions));
-  // Right after app.use(cors(corsOptions)) and before all other routes
+  app.options('*', cors(corsOptions));
+
+  // Health check
   app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
   });
 
-  // ✅ Handle ALL preflight requests immediately (must be before routes)
-  app.options('*', cors(corsOptions));
-
-  // ✅ Socket.IO with same CORS config
+  // Socket.IO
   const io = new Server(httpServer, {
     cors: {
       origin: allowedOrigins,
@@ -197,18 +164,16 @@ httpServer.listen(PORT, '0.0.0.0', () => {
     }
   });
 
-  // Other middleware AFTER cors
+  // Other middleware
   app.use(morgan('dev'));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // Attach io to request
   app.use((req: any, res, next) => {
     req.io = io;
     next();
   });
 
-  // WebSocket
   io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
     socket.on('disconnect', () => {
@@ -224,7 +189,7 @@ httpServer.listen(PORT, '0.0.0.0', () => {
   app.use('/api/reports', reportRoutes);
   app.use('/api/treatments', treatmentRoutes);
 
-  // Serve Vite frontend
+  // Serve frontend
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -239,8 +204,9 @@ httpServer.listen(PORT, '0.0.0.0', () => {
     });
   }
 
+  // ✅ ONE listen call only — at the end
   httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
   });
 
   httpServer.on('error', (err: any) => {
@@ -252,13 +218,8 @@ httpServer.listen(PORT, '0.0.0.0', () => {
     }
   });
 }
+
 startServer().catch(err => {
-  // Add at the very top of startServer()
-  console.log('ENV CHECK:', {
-    DB_HOST: process.env.DB_HOST,
-    DB_NAME: process.env.DB_NAME,
-    NODE_ENV: process.env.NODE_ENV,
-  });
   console.error('Failed to start server:', err);
   process.exit(1);
 });
