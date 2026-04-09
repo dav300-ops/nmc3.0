@@ -154,7 +154,14 @@ async function startServer() {
   const app = express();
   const httpServer = createServer(app);
 
-  const PORT = Number(process.env.PORT) || 3000;
+  //const PORT = Number(process.env.PORT) || 3000;
+
+  const PORT = Number(process.env.PORT);
+
+// And make sure you're listening on 0.0.0.0:
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
 
   // ✅ Define allowed origins once
   const allowedOrigins = [
