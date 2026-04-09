@@ -142,27 +142,37 @@ async function startServer() {
     process.exit(1);
   }
 
-  const app = express();
 
-  const httpServer = createServer(app);
-  const io = new Server(httpServer, {
-    cors: {
-      origin: '*',
-      methods: ['GET', 'POST', 'PUT', 'DELETE']
-    }
-  });
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: [
+      'https://nmc-92674.web.app',
+      'https://nmc-92674.firebaseapp.com',
+      'http://localhost:3000',
+      'http://localhost:5173'
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE']
+  }
+});
 
-  const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
-  // Middleware
-  app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-  }));
-  app.use(morgan('dev'));
-  app.use(express.json());
- 
+// Middleware - only ONE cors() call
+app.use(cors({
+  origin: [
+    'https://nmc-92674.web.app',
+    'https://nmc-92674.firebaseapp.com',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+app.use(morgan('dev'));
+app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
   // Attach io to request for use in routes
