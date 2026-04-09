@@ -133,55 +133,61 @@ const initDB = async () => {
 
 // ─── Server ───────────────────────────────────────────────────────────────────
 async function startServer() {
-  // Initialize DB tables on startup
   try {
     await initDB();
-    console.log(' PostgreSQL connected');
+    console.log('PostgreSQL connected');
   } catch (err) {
-    console.error(' DB connection error:', err);
+    console.error('DB connection error:', err);
     process.exit(1);
   }
 
+  const app = express();
+  const httpServer = createServer(app);
 
-const app = express();
-const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    origin: [
-      'https://nmc-92674.web.app',
-      'https://nmc-92674.firebaseapp.com',
-      'http://localhost:3000',
-      'http://localhost:5173'
-    ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE']
-  }
-});
+  const PORT = Number(process.env.PORT) || 3000;
 
-const PORT = Number(process.env.PORT) || 3000;
-
-// Middleware - only ONE cors() call
-app.use(cors({
-  origin: [
+  // ✅ Define allowed origins once
+  const allowedOrigins = [
     'https://nmc-92674.web.app',
     'https://nmc-92674.firebaseapp.com',
     'http://localhost:3000',
     'http://localhost:5173'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
-app.use(morgan('dev'));
-app.use(express.json());
+  ];
+
+  const corsOptions = {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+  };
+
+  // ✅ CORS must be the VERY FIRST middleware
+  app.use(cors(corsOptions));
+
+  // ✅ Handle ALL preflight requests immediately (must be before routes)
+  app.options('*', cors(corsOptions));
+
+  // ✅ Socket.IO with same CORS config
+  const io = new Server(httpServer, {
+    cors: {
+      origin: allowedOrigins,
+      methods: ['GET', 'POST', 'PUT', 'DELETE'],
+      credentials: true
+    }
+  });
+
+  // Other middleware AFTER cors
+  app.use(morgan('dev'));
+  app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // Attach io to request for use in routes
+  // Attach io to request
   app.use((req: any, res, next) => {
     req.io = io;
     next();
   });
 
-  // WebSocket connection
+  // WebSocket
   io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
     socket.on('disconnect', () => {
@@ -212,25 +218,19 @@ app.use(express.json());
     });
   }
 
-  // ✅ Start listening
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
   });
 
-  // ✅ Handle port already in use error
   httpServer.on('error', (err: any) => {
     if (err.code === 'EADDRINUSE') {
-      console.error(` Port ${PORT} is already in use.`);
-      console.error(`   Run this to fix it: netstat -ano | findstr :${PORT}`);
-      console.error(`   Then kill it with:  taskkill /PID <PID> /F`);
-      console.error(`   Or set a different PORT= in your .env file`);
+      console.error(`Port ${PORT} is already in use.`);
       process.exit(1);
     } else {
       throw err;
     }
   });
 }
-
 startServer().catch(err => {
   console.error('Failed to start server:', err);
   process.exit(1);
