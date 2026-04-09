@@ -46,6 +46,8 @@ export const db = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+
+
 // Initialize Tables 
 const initDB = async () => {
   await db.query(`
@@ -236,6 +238,12 @@ async function startServer() {
   });
 }
 startServer().catch(err => {
+  // Add at the very top of startServer()
+  console.log('ENV CHECK:', {
+    DB_HOST: process.env.DB_HOST,
+    DB_NAME: process.env.DB_NAME,
+    NODE_ENV: process.env.NODE_ENV,
+  });
   console.error('Failed to start server:', err);
   process.exit(1);
 });
