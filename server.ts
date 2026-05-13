@@ -1,3 +1,7 @@
+
+import dotenv from 'dotenv';
+dotenv.config();
+
 console.log('ENV CHECK:', {
   DB_HOST: process.env.DB_HOST,
   DB_NAME: process.env.DB_NAME,
@@ -14,7 +18,6 @@ import { createServer as createViteServer } from 'vite';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { Pool } from 'pg';
-import dotenv from 'dotenv';
 import authRoutes from './backend/auth.ts';
 import patientRoutes from './backend/patients.ts';
 import appointmentRoutes from './backend/appointments.ts';
@@ -22,7 +25,6 @@ import paymentRoutes from './backend/payments.ts';
 import reportRoutes from './backend/reports.ts';
 import treatmentRoutes from './backend/treatments.ts';
 
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,8 +35,12 @@ export const db = new Pool({
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: false }
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
+
+
 
 const initDB = async () => {
   await db.query(`
